@@ -1,8 +1,10 @@
 *.ini
 *.zip
 *.xls
-*.xlsx
+*.xls*
 *.exe
+*.tmp.*
+
 
 # Windows image file caches
 Thumbs.db

@@ -74,7 +74,7 @@ RegisterPreamble(key){
 		;unbind previous binding
 		hotkey, %LastPreambleKey%, OFF
 	}
-	hotkey, %key% , PreamblePressed
+	hotkey, %key% , PreamblePressed, P2147483647
 	LastPreambleKey := key
 }
 
@@ -90,24 +90,38 @@ RegisterLink(key){
 }
 
 PreamblePressed:
-	PreamblePressed()
+	Critical
+	Thread, NoTimers
+	Thread, Priority, 2147483647
+	
+	;Block keyboard and read keys pressed until postamble detected.
+	Input, text, , {%PostAmbleKey%}
+	;Gui, 2:Show
+	;Gui, 2:Hide
+	
+	if (LinkedWorkbook){
+		ScanList.Insert(text)
+	} else {
+		WarningBeep()
+		;TTS("Warning: Excel not linked")
+	}
 	return
 
 PreamblePressed(){
 	global ScanList
 	global LinkedWorkbook
 	global PostAmbleKey
-	
+
 	;Block keyboard and read keys pressed until postamble detected.
 	Input, text, , {%PostAmbleKey%}
-	Gui, 2:Show
-	Gui, 2:Hide
+	;Gui, 2:Show
+	;Gui, 2:Hide
 	
 	if (LinkedWorkbook){
 		ScanList.Insert(text)
 	} else {
-		;LowBeep()
-		TTS("Warning: Excel not linked")
+		WarningBeep()
+		;TTS("Warning: Excel not linked")
 	}
 }
 
@@ -127,7 +141,14 @@ StartListener(){
 	global NotFoundSheet
 	global NotFoundCount
 	
-	Loop {
+	SetTimer, Listener, 100
+}
+
+Listener:
+	Thread, Interrupt, 0, 0
+	Thread, Priority, -2147483648
+	
+	;Loop {
 		if (LinkedExcel){
 			if (ScanList.MaxIndex()){
 				found := []
@@ -139,6 +160,8 @@ StartListener(){
 					Loop {
 						; Find all instances on this sheet
 						if (res == 0){
+							;res := LinkedWorkbook.Sheets(s).Cells.Find(ScanList[1])
+							Sleep -1
 							res := LinkedWorkbook.Sheets(s).Cells.Find(ScanList[1])
 							first := res.Address
 						} else {
@@ -156,6 +179,7 @@ StartListener(){
 							break
 						}
 					}
+					Sleep -1
 				}
 
 				if (found.MaxIndex() == 0 || found.MaxIndex() == ""){
@@ -173,10 +197,13 @@ StartListener(){
 					LinkedWorkbook.Sheets(found[1].sheet).Activate
 					found[1].result.Select
 					found[1].result.Interior.Color := RGB2Excel(0,255,0)
-					;HighBeep()
 					
-					LinkedWorkbook.Save
+					Loop % found[1].sheet {
+						HighBeep()
+						Sleep 50
+					}
 					
+					/*
 					; Say Name / Number of sheet
 					name := GetWorksheetName()
 					name := StrSplit(name,"|")
@@ -186,18 +213,23 @@ StartListener(){
 						name := found[1].sheet
 					}
 					TTS(name "!")
+					*/
 					
+					Sleep -1
+					
+					;LinkedWorkbook.Save
 				} else {
+					; Found multiple
 					WarningBeep()
 
 				}
 				ScanList.Remove(1)
 			}
 		}
-		Sleep 50
-	}
-}
-
+		;Sleep 50
+	;}
+	return
+	
 RGB2Excel(R, G, B) {
 	ExcelFormat :=  (R<<16) + (G<<8) + B
 	return ExcelFormat
